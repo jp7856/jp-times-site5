@@ -271,6 +271,7 @@ function openArticle(idx) {
   const a = _articles[idx];
   if (!a) return;
   document.getElementById("article-content").innerHTML = `
+    ${a.image_url ? `<img class="article-hero" src="${esc(a.image_url)}" alt="">` : ""}
     <div class="article-header">
       <div class="article-badges">${badge(a.level)}<span class="lvbadge">${esc(a.section)}</span></div>
       <div class="article-title">${esc(titleOf(a))}</div>
@@ -280,7 +281,6 @@ function openArticle(idx) {
         <span>🏷️ ${esc(a.topic)}</span>
       </div>
     </div>
-    ${a.image_url ? `<div class="article-hero-wrap"><img class="article-hero" src="${esc(a.image_url)}" alt=""></div>` : ""}
     <div class="article-text-col">
       <div class="article-body">${esc(a.article.text)}</div>
       <button class="ko-toggle" onclick="document.getElementById('ko-body').classList.toggle('show')">🇰🇷 한국어 번역 보기 / 닫기</button>
