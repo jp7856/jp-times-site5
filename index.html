@@ -11,7 +11,7 @@
 </script>  
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NE Times — 발행 기사</title>
+<title>JP Times — 발행 기사</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@700;900&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -129,13 +129,13 @@ footer{background:var(--navy);color:#8899bb;font-size:11px;text-align:center;pad
 
 <div class="util-bar">
   <span id="today"></span>
-  <span>NE Times Content Pipeline — Published Articles</span>
+  <span>JP Times Content Pipeline — Published Articles</span>
 </div>
 
 <header>
   <div class="header-inner">
     <div>
-      <div class="logo">NE <em>Times</em></div>
+      <div class="logo">JP <em>Times</em></div>
       <div class="logo-sub">ENGLISH EDUCATION NEWSPAPER · 발행 기사 모음</div>
     </div>
   </div>
@@ -160,7 +160,7 @@ footer{background:var(--navy);color:#8899bb;font-size:11px;text-align:center;pad
   </div>
 </div>
 
-<footer>© NE Times Content Pipeline · Powered by Claude</footer>
+<footer>© JP Times Content Pipeline · Powered by Claude</footer>
 
 <script>
 // ────────────────────────────────────────────────
@@ -257,7 +257,7 @@ function renderList() {
 
   let html = `
     <div class="section-bar">
-      <div class="section-title">${_activeTab === "all" ? "최신 발행 기사" : "NE Times " + (LEVELS.find(t => t.key === _activeTab) || { label: _activeTab }).label}</div>
+      <div class="section-title">${_activeTab === "all" ? "최신 발행 기사" : "JP Times " + (LEVELS.find(t => t.key === _activeTab) || { label: _activeTab }).label}</div>
       <div class="section-count">${list.length}건</div>
       <div class="section-line"></div>
     </div>
