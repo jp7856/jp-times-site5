@@ -115,6 +115,26 @@ header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .card-avatar{width:18px;height:18px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:#e8eaf6}
 @media(max-width:760px){.byline-avatar{width:64px;height:64px}.byline{gap:10px}}
 
+/* On Air 필진 프로필 */
+.onair-tab{margin-left:auto;color:var(--red)!important;font-weight:900}
+.onair-tab.active{border-bottom-color:var(--red)}
+.profile-hero{text-align:center;padding:28px 12px 8px}
+.profile-hero .ph-logo{font-family:'Noto Serif KR',serif;font-size:26px;font-weight:900;color:var(--navy)}
+.profile-hero .ph-logo em{color:var(--red);font-style:normal}
+.profile-hero .ph-sub{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.7}
+.profile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:20px 0 34px}
+.profile-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:24px 16px 18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;transition:outline-color .3s}
+.profile-card.hl{outline:3px solid var(--red);outline-offset:2px}
+.profile-order{font-size:10px;color:#bbb;letter-spacing:.08em}
+.profile-avatar{width:120px;height:120px;border-radius:50%;object-fit:cover;background:#e8eaf6}
+.profile-name{font-weight:900;font-size:17px;color:var(--navy)}
+.profile-intro{font-size:12.5px;color:var(--muted);line-height:1.8;text-align:left}
+.profile-btn{margin-top:auto;background:none;border:1px solid var(--red);color:var(--red);border-radius:3px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.profile-btn:hover{background:var(--red);color:#fff}
+.byline-click{display:flex;align-items:center;gap:14px;cursor:pointer}
+.byline-click:hover .byline-name{color:var(--red)}
+@media(max-width:760px){.profile-grid{grid-template-columns:1fr}}
+
 .state-box{padding:60px 20px;text-align:center}
 .state-icon{font-size:44px;margin-bottom:12px;opacity:.3}
 .state-title{font-size:18px;font-weight:700;color:var(--muted);margin-bottom:6px}
@@ -193,8 +213,48 @@ function cardAvatar(a) {
   return name ? `<img class="card-avatar" src="${avatarUrl(name)}" alt="${esc(name)}" loading="lazy" onerror="this.remove()">` : "";
 }
 
+// On Air 필진 프로필 — 소개문은 news-pipeline5/docs/on_air_bible.md 3.6이 단일 소스
+const characterProfiles = [
+  { name: "Leo",    level: "kinder",   intro: "On Air의 막내 기자 레오예요. 이제 막 뉴스를 배우기 시작해서 궁금한 게 세상에서 제일 많아요. 동물과 탈것, 그리고 맛있는 간식 이야기가 나오면 눈이 반짝반짝해진답니다." },
+  { name: "Ruby",   level: "kids",     intro: "신기한 걸 발견하면 제일 먼저 달려와 알려주는 주니어 리포터 루비예요. 과학 실험과 세계 여러 나라 친구들 이야기를 좋아해요. 아는 건 자랑이 아니라 나누는 거라고 믿어요." },
+  { name: "Sunny",  level: "junior",   intro: "뉴스가 있는 곳이라면 어디든 달려가는 현장 리포터 써니예요. 스튜디오보다 현장이 좋아요. 스포츠, 환경, 요즘 유행하는 것들을 발로 뛰며 취재합니다." },
+  { name: "Erin",   level: "junior_m", intro: "On Air의 신입 저널리스트 에린이에요. 뉴스가 여러분의 삶과 어떻게 이어지는지 보여주는 게 제 일이에요. 어느 한쪽으로 치우치지 않는 균형 잡힌 시선을 약속합니다." },
+  { name: "Daniel", level: "times",    intro: "On Air의 메인 앵커 대니얼입니다. 세계의 소식을 차분하고 정확하게 전하는 것, 그것이 뉴스룸의 선장인 제 역할입니다. 레오와 루비가 자라 앉게 될 자리를 지키고 있습니다." },
+];
+
 let _articles = [];
 let _activeTab = "all";
+let _view = "list";  // "list" | "profiles"
+
+function showProfiles(focusLevel) {
+  _view = "profiles";
+  renderTabs();
+  renderProfiles(focusLevel);
+}
+
+function renderProfiles(focusLevel) {
+  const el = document.getElementById("content");
+  el.innerHTML = `
+    <div class="profile-hero">
+      <div class="ph-logo">ON <em>AIR</em> — 다섯 명의 뉴스룸</div>
+      <div class="ph-sub">막내 기자부터 메인 앵커까지, 독자가 자라면 바이라인의 얼굴도 함께 자랍니다</div>
+    </div>
+    <div class="profile-grid">
+      ${characterProfiles.map((c, i) => `
+        <div class="profile-card ${focusLevel === c.level ? "hl" : ""}" id="profile-${c.level}">
+          <div class="profile-order">${i + 1} / ${characterProfiles.length}</div>
+          <img class="profile-avatar" src="${avatarUrl(c.name, true)}" alt="${esc(c.name)}" onerror="this.remove()">
+          <div class="profile-name">${esc(c.name)}</div>
+          ${badge(c.level)}
+          <div class="profile-intro">${esc(c.intro)}</div>
+          <button class="profile-btn" onclick="switchTab('${c.level}')">이 필진의 기사 보기 →</button>
+        </div>`).join("")}
+    </div>`;
+  if (focusLevel) {
+    const card = document.getElementById("profile-" + focusLevel);
+    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
 
 document.getElementById("today").textContent =
   new Date().toLocaleDateString("ko-KR", { year:"numeric", month:"long", day:"numeric", weekday:"long" });
@@ -226,12 +286,14 @@ function renderTabs() {
     counts[lv] = _articles.filter(a => a.level === lv).length;
   }
   document.getElementById("cat-tabs").innerHTML = LEVELS.map(t => `
-    <div class="cat-tab ${t.key === _activeTab ? "active" : ""}" onclick="switchTab('${t.key}')">
+    <div class="cat-tab ${_view === "list" && t.key === _activeTab ? "active" : ""}" onclick="switchTab('${t.key}')">
       ${t.label} <span class="cat-cnt">${counts[t.key] || 0}</span>
-    </div>`).join("");
+    </div>`).join("") + `
+    <div class="cat-tab onair-tab ${_view === "profiles" ? "active" : ""}" onclick="showProfiles()">🔴 On Air 필진</div>`;
 }
 
 function switchTab(key) {
+  _view = "list";
   _activeTab = key;
   renderTabs();
   renderList();
@@ -313,10 +375,12 @@ function openArticle(idx) {
         const name = bylineOf(a);   // 기사 객체 기준 매 렌더 계산 — 라우팅 잔존 없음
         if (!name) return "";
         return `<div class="byline">
-          <img class="byline-avatar" src="${avatarUrl(name, true)}" alt="${esc(name)}" onerror="this.remove()">
-          <div class="byline-info">
-            <div class="byline-name"><small>By</small> ${esc(name)}</div>
-            <div class="byline-team">On Air 뉴스룸</div>
+          <div class="byline-click" onclick="closeArticle();showProfiles('${a.level}')" title="필진 프로필 보기">
+            <img class="byline-avatar" src="${avatarUrl(name, true)}" alt="${esc(name)}" onerror="this.remove()">
+            <div class="byline-info">
+              <div class="byline-name"><small>By</small> ${esc(name)}</div>
+              <div class="byline-team">On Air 뉴스룸</div>
+            </div>
           </div>
           ${badge(a.level)}
         </div>`;
