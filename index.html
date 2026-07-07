@@ -105,6 +105,16 @@ header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .vocab{color:var(--muted);font-size:13px;margin-top:16px;padding-top:14px;border-top:1px dashed var(--border);line-height:2}
 .vocab b{color:var(--red)}
 
+/* On Air 바이라인 */
+.byline{display:flex;align-items:center;gap:14px;margin:14px 0 4px;padding:10px 0;border-top:1px solid var(--border)}
+.byline-avatar{width:96px;height:96px;border-radius:50%;object-fit:cover;background:#e8eaf6;flex:0 0 auto}
+.byline-info{display:flex;flex-direction:column;gap:4px}
+.byline-name{font-size:15px;font-weight:900;color:var(--navy)}
+.byline-name small{font-weight:400;color:var(--muted);font-size:12px;margin-right:2px}
+.byline-team{font-size:11px;color:var(--muted)}
+.card-avatar{width:18px;height:18px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:#e8eaf6}
+@media(max-width:760px){.byline-avatar{width:64px;height:64px}.byline{gap:10px}}
+
 .state-box{padding:60px 20px;text-align:center}
 .state-icon{font-size:44px;margin-bottom:12px;opacity:.3}
 .state-title{font-size:18px;font-weight:700;color:var(--muted);margin-bottom:6px}
@@ -167,6 +177,22 @@ const LEVELS = [
   { key: "junior_m", label: "Junior M" },
 ];
 
+// On Air 필자 — 시트 필자 필드(byline) 우선, 없으면(구버전 행) 발행물 매핑 폴백.
+// 캐릭터 IP 단일 소스: news-pipeline5/docs/on_air_bible.md (BYLINE_AUTHORS와 동일 매핑)
+const AVATAR_BASE = "assets/avatars/";
+const bylineAuthors = { kinder: "Leo", kids: "Ruby", junior: "Sunny", junior_m: "Erin", times: "Daniel" };
+
+function bylineOf(a) {
+  return (a.byline || "").trim() || bylineAuthors[a.level] || "";
+}
+function avatarUrl(name, lg) {
+  return name ? `${AVATAR_BASE}${name.toLowerCase().replace(/\s+/g, "")}${lg ? "_lg" : ""}.webp` : "";
+}
+function cardAvatar(a) {
+  const name = bylineOf(a);
+  return name ? `<img class="card-avatar" src="${avatarUrl(name)}" alt="${esc(name)}" loading="lazy" onerror="this.remove()">` : "";
+}
+
 let _articles = [];
 let _activeTab = "all";
 
@@ -196,7 +222,7 @@ function titleOf(a) {
 
 function renderTabs() {
   const counts = { all: _articles.length };
-  for (const lv of ["kinder","kids","junior","times"]) {
+  for (const lv of ["kinder","kids","junior","times","junior_m"]) {
     counts[lv] = _articles.filter(a => a.level === lv).length;
   }
   document.getElementById("cat-tabs").innerHTML = LEVELS.map(t => `
@@ -239,7 +265,7 @@ function renderList() {
     <div class="top-grid">
       <div class="main-art" onclick="openArticle(${_articles.indexOf(main)})">
         ${imgOrPh(main.image_url, "main-img", "main-img-ph", "📰")}
-        <div class="main-badges">${badge(main.level)}<span class="lvbadge">${esc(main.section)}</span></div>
+        <div class="main-badges">${cardAvatar(main)}${badge(main.level)}<span class="lvbadge">${esc(main.section)}</span></div>
         <div class="main-title">${esc(titleOf(main))}</div>
         <div class="main-body">${esc(main.article.summary_ko || main.article.text)}</div>
         <div class="main-date">${esc(main.created_at)}</div>
@@ -250,7 +276,7 @@ function renderList() {
             ${imgOrPh(a.image_url, "side-thumb", "side-thumb-ph", "📰")}
             <div>
               <div class="side-title">${esc(titleOf(a))}</div>
-              <div class="side-badges">${badge(a.level)}<span class="side-date">${esc(a.created_at)}</span></div>
+              <div class="side-badges">${cardAvatar(a)}${badge(a.level)}<span class="side-date">${esc(a.created_at)}</span></div>
             </div>
           </div>`).join("")}
       </div>
@@ -263,7 +289,7 @@ function renderList() {
           ${grid.map(a => `
             <div class="grid-item" onclick="openArticle(${_articles.indexOf(a)})">
               ${imgOrPh(a.image_url, "grid-img", "grid-img-ph", "📰")}
-              <div class="grid-badges">${badge(a.level)}<span class="lvbadge">${esc(a.section)}</span></div>
+              <div class="grid-badges">${cardAvatar(a)}${badge(a.level)}<span class="lvbadge">${esc(a.section)}</span></div>
               <div class="grid-title">${esc(titleOf(a))}</div>
               <div class="grid-body">${esc(a.article.summary_ko || a.article.text)}</div>
               <div class="grid-date">${esc(a.created_at)}</div>
@@ -283,6 +309,18 @@ function openArticle(idx) {
     <div class="article-header">
       <div class="article-badges">${badge(a.level)}<span class="lvbadge">${esc(a.section)}</span></div>
       <div class="article-title">${esc(titleOf(a))}</div>
+      ${(() => {
+        const name = bylineOf(a);   // 기사 객체 기준 매 렌더 계산 — 라우팅 잔존 없음
+        if (!name) return "";
+        return `<div class="byline">
+          <img class="byline-avatar" src="${avatarUrl(name, true)}" alt="${esc(name)}" onerror="this.remove()">
+          <div class="byline-info">
+            <div class="byline-name"><small>By</small> ${esc(name)}</div>
+            <div class="byline-team">On Air 뉴스룸</div>
+          </div>
+          ${badge(a.level)}
+        </div>`;
+      })()}
       <div class="article-meta">
         <span>📅 ${esc(a.created_at)}</span>
         <span>📝 ${a.article.word_count} words</span>
