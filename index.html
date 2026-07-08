@@ -26,9 +26,10 @@ header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .logo em{color:var(--red);font-style:normal}
 .logo-sub{font-size:10px;color:var(--muted);letter-spacing:.06em}
 .logo-sub-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:3px}
-.onair-btn{background:var(--navy);border:1px solid var(--navy);color:#fff;border-radius:999px;padding:3px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s,border-color .15s}
+.onair-btn{display:none;background:var(--navy);border:1px solid var(--navy);color:#fff;border-radius:999px;padding:3px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s,border-color .15s}
 .onair-btn:hover,.onair-btn.active{background:#1c3160;border-color:#1c3160}
 .onair-btn .short{display:none}
+@media(max-width:760px){.onair-btn{display:inline-block}}
 @media(max-width:480px){.onair-btn .full{display:none}.onair-btn .short{display:inline}}
 
 .cat-nav{background:#fff;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.06)}
