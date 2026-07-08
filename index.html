@@ -164,7 +164,7 @@ footer{background:var(--navy);color:#8899bb;font-size:11px;text-align:center;pad
       <div class="logo" onclick="goHome()" title="메인으로">JP <em>Times</em></div>
       <div class="logo-sub-row">
         <div class="logo-sub">ENGLISH EDUCATION NEWSPAPER · 발행 기사 모음</div>
-        <button class="onair-btn" id="onair-btn" onclick="showProfiles()">🔴 <span class="full">On Air 필진</span><span class="short">필진</span></button>
+        <button class="onair-btn" id="onair-btn" onclick="showProfiles(undefined,'header')">🔴 <span class="full">On Air 필진</span><span class="short">필진</span></button>
       </div>
     </div>
   </div>
@@ -211,6 +211,14 @@ const LEVELS = [
 const AVATAR_BASE = "assets/avatars/";
 const bylineAuthors = { kinder: "Leo", kids: "Ruby", junior: "Sunny", junior_m: "Erin", times: "Daniel" };
 
+// GA4 커스텀 이벤트 — SPA라 기사 열람이 페이지뷰로 안 잡히는 문제 보완.
+// gtag 미로드 환경(로컬 파일 열기 등)에서도 에러 없이 무시되도록 가드.
+function track(name, params) {
+  if (typeof gtag === "function") {
+    try { gtag("event", name, params); } catch (e) { /* 계측 실패는 무시 */ }
+  }
+}
+
 function bylineOf(a) {
   return (a.byline || "").trim() || bylineAuthors[a.level] || "";
 }
@@ -235,6 +243,12 @@ let _articles = [];
 let _activeTab = "all";
 let _view = "list";  // "list" | "profiles"
 
+function bylineClick(level, name) {
+  track("byline_click", { byline: name });
+  closeArticle();
+  showProfiles(level, "byline");
+}
+
 function goHome() {
   closeArticle();
   _view = "list";
@@ -244,7 +258,8 @@ function goHome() {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function showProfiles(focusLevel) {
+function showProfiles(focusLevel, entryPoint) {
+  track("profile_view", { entry_point: entryPoint || "tab" });
   _view = "profiles";
   renderTabs();
   renderProfiles(focusLevel);
@@ -309,7 +324,7 @@ function renderTabs() {
     <div class="cat-tab ${_view === "list" && t.key === _activeTab ? "active" : ""}" onclick="switchTab('${t.key}')">
       ${t.label} <span class="cat-cnt">${counts[t.key] || 0}</span>
     </div>`).join("") + `
-    <div class="cat-tab onair-tab ${_view === "profiles" ? "active" : ""}" onclick="showProfiles()">🔴 On Air 필진</div>`;
+    <div class="cat-tab onair-tab ${_view === "profiles" ? "active" : ""}" onclick="showProfiles(undefined,'tab')">🔴 On Air 필진</div>`;
 }
 
 function switchTab(key) {
@@ -386,6 +401,13 @@ function renderList() {
 function openArticle(idx) {
   const a = _articles[idx];
   if (!a) return;
+  track("article_view", {
+    article_title: titleOf(a),
+    level: a.level,
+    sub_level: a.sub_level || "",
+    byline: bylineOf(a),
+    category: a.section,
+  });
   document.getElementById("article-content").innerHTML = `
     ${a.image_url ? `<img class="article-hero" src="${esc(a.image_url)}" alt="">` : ""}
     <div class="article-header">
@@ -395,7 +417,7 @@ function openArticle(idx) {
         const name = bylineOf(a);   // 기사 객체 기준 매 렌더 계산 — 라우팅 잔존 없음
         if (!name) return "";
         return `<div class="byline">
-          <div class="byline-click" onclick="closeArticle();showProfiles('${a.level}')" title="필진 프로필 보기">
+          <div class="byline-click" onclick="bylineClick('${a.level}','${esc(name)}')" title="필진 프로필 보기">
             <img class="byline-avatar" src="${avatarUrl(name, true)}" alt="${esc(name)}" onerror="this.remove()">
             <div class="byline-info">
               <div class="byline-name"><small>By</small> ${esc(name)}</div>
