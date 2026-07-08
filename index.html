@@ -24,7 +24,12 @@ header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .logo{font-family:'Noto Serif KR',serif;font-size:36px;font-weight:900;color:var(--navy);letter-spacing:-1px;line-height:1;cursor:pointer;display:inline-block}
 .logo:hover em{text-decoration:underline}
 .logo em{color:var(--red);font-style:normal}
-.logo-sub{font-size:10px;color:var(--muted);letter-spacing:.06em;margin-top:3px}
+.logo-sub{font-size:10px;color:var(--muted);letter-spacing:.06em}
+.logo-sub-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:3px}
+.onair-btn{background:none;border:1px solid var(--red);color:var(--red);border-radius:999px;padding:3px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s,color .15s}
+.onair-btn:hover,.onair-btn.active{background:var(--red);color:#fff}
+.onair-btn .short{display:none}
+@media(max-width:480px){.onair-btn .full{display:none}.onair-btn .short{display:inline}}
 
 .cat-nav{background:#fff;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .cat-nav-inner{max-width:1200px;margin:0 auto;display:flex;overflow-x:auto}
@@ -155,9 +160,12 @@ footer{background:var(--navy);color:#8899bb;font-size:11px;text-align:center;pad
 
 <header>
   <div class="header-inner">
-    <div>
+    <div style="flex:1">
       <div class="logo" onclick="goHome()" title="메인으로">JP <em>Times</em></div>
-      <div class="logo-sub">ENGLISH EDUCATION NEWSPAPER · 발행 기사 모음</div>
+      <div class="logo-sub-row">
+        <div class="logo-sub">ENGLISH EDUCATION NEWSPAPER · 발행 기사 모음</div>
+        <button class="onair-btn" id="onair-btn" onclick="showProfiles()">🔴 <span class="full">On Air 필진</span><span class="short">필진</span></button>
+      </div>
     </div>
   </div>
 </header>
@@ -291,6 +299,8 @@ function titleOf(a) {
 }
 
 function renderTabs() {
+  const hb = document.getElementById("onair-btn");
+  if (hb) hb.classList.toggle("active", _view === "profiles");
   const counts = { all: _articles.length };
   for (const lv of ["kinder","kids","junior","times","junior_m"]) {
     counts[lv] = _articles.filter(a => a.level === lv).length;
