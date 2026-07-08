@@ -236,6 +236,7 @@ const voicePresets = {
 
 let _tts = { playing: false, articleIdx: null, lastPara: null, cancelled: false };
 let _enVoice = null;
+let _audioEl = null;  // 클라우드 MP3 재생용 (발행 시 사전 생성된 캐릭터 보이스)
 
 function ttsSupported() {
   return typeof window !== "undefined" && "speechSynthesis" in window
@@ -255,20 +256,50 @@ if (ttsSupported()) {
 function _josa(name) { return /[aeiouy]$/i.test(name || "") ? "가" : "이"; }
 
 function stopTTS() {
-  if (!ttsSupported()) return;
   _tts.cancelled = true;
   _tts.playing = false;
-  try { speechSynthesis.cancel(); } catch (e) {}
+  if (_audioEl) {
+    try { _audioEl.pause(); _audioEl.removeAttribute("src"); _audioEl.load(); } catch (e) {}
+  }
+  if (ttsSupported()) {
+    try { speechSynthesis.cancel(); } catch (e) {}
+  }
   if (_tts.lastPara) { _tts.lastPara.classList.remove("speaking"); _tts.lastPara = null; }
   const btn = document.getElementById("tts-btn");
   if (btn && _tts.label) { btn.textContent = _tts.label; btn.classList.remove("playing"); }
 }
 
+function playCloudTTS(idx, a) {
+  // 발행 시 사전 생성된 캐릭터 보이스 MP3 — 문단 하이라이트는 불가, 버튼 상태로 재생 중 표시
+  const name = bylineOf(a);
+  const st = { playing: true, articleIdx: idx, lastPara: null, cancelled: false, label: null };
+  _tts = st;
+  const btn = document.getElementById("tts-btn");
+  if (btn) { st.label = btn.textContent; btn.textContent = "⏹ 정지"; btn.classList.add("playing"); }
+  if (!_audioEl) _audioEl = new Audio();
+  _audioEl.src = API_BASE + a.audio_url;
+  _audioEl.onended = () => {
+    if (st.cancelled || _tts !== st) return;
+    track("tts_complete", { byline: name, level: a.level, article_title: titleOf(a), tts_source: "cloud" });
+    stopTTS();
+  };
+  _audioEl.onerror = () => {
+    if (st.cancelled || _tts !== st) return;
+    stopTTS();  // 로드/재생 실패 — 버튼만 복원, 에러 노출 없음
+  };
+  track("tts_play", { byline: name, level: a.level, article_title: titleOf(a), tts_source: "cloud" });
+  // iOS: 사용자 클릭 핸들러 체인 안에서 play() 직접 호출
+  const p = _audioEl.play();
+  if (p && p.catch) p.catch(() => { if (_tts === st) stopTTS(); });
+}
+
 function toggleTTS(idx) {
-  // iOS Safari: 사용자 터치 핸들러 안에서 speak()가 직접 호출돼야 재생됨 — 이 함수가 onclick
+  // iOS Safari: 사용자 터치 핸들러 안에서 speak()/play()가 직접 호출돼야 재생됨 — 이 함수가 onclick
   if (_tts.playing) { stopTTS(); return; }
   const a = _articles[idx];
-  if (!a || !ttsSupported()) return;
+  if (!a) return;
+  if (a.audio_url) { playCloudTTS(idx, a); return; }  // 클라우드 오디오 우선
+  if (!ttsSupported()) return;  // 구기사(오디오 없음)는 Web Speech 폴백
   pickVoice();
   const vs = speechSynthesis.getVoices() || [];
   if (vs.length === 0 && !_enVoice) {
@@ -285,7 +316,7 @@ function toggleTTS(idx) {
   _tts = st;
   const btn = document.getElementById("tts-btn");
   if (btn) { st.label = btn.textContent; btn.textContent = "⏹ 정지"; btn.classList.add("playing"); }
-  track("tts_play", { byline: name, level: a.level, article_title: titleOf(a) });
+  track("tts_play", { byline: name, level: a.level, article_title: titleOf(a), tts_source: "browser" });
 
   paras.forEach((text, i) => {
     const u = new SpeechSynthesisUtterance(text);
@@ -302,7 +333,7 @@ function toggleTTS(idx) {
     if (i === paras.length - 1) {
       u.onend = () => {
         if (st.cancelled || _tts !== st) return;  // cancel()·세션 교체로 인한 onend는 완청 아님
-        track("tts_complete", { byline: name, level: a.level, article_title: titleOf(a) });
+        track("tts_complete", { byline: name, level: a.level, article_title: titleOf(a), tts_source: "browser" });
         stopTTS();
       };
     }
@@ -517,7 +548,7 @@ function openArticle(idx) {
             </div>
           </div>
           ${badge(a.level)}
-          ${ttsSupported() ? `<button class="tts-btn" id="tts-btn" onclick="toggleTTS(${idx})">🔊 ${esc(name)}${_josa(name)} 읽어주기</button>` : ""}
+          ${(a.audio_url || ttsSupported()) ? `<button class="tts-btn" id="tts-btn" onclick="toggleTTS(${idx})">🔊 ${esc(name)}${_josa(name)} 읽어주기</button>` : ""}
         </div>`;
       })()}
       <div class="article-meta">
