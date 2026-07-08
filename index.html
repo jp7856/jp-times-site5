@@ -138,6 +138,11 @@ header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .profile-btn{margin-top:auto;background:none;border:1px solid var(--red);color:var(--red);border-radius:3px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
 .profile-btn:hover{background:var(--red);color:#fff}
 .byline-click{display:flex;align-items:center;gap:14px;cursor:pointer}
+.tts-btn{margin-left:auto;background:#fff;border:1px solid var(--navy);color:var(--navy);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s,color .15s}
+.tts-btn:hover{background:var(--navy);color:#fff}
+.tts-btn.playing{background:var(--red);border-color:var(--red);color:#fff}
+.article-body p{margin:0 0 1.1em;white-space:pre-line}
+.article-body p.speaking{background:#fff8e1;box-shadow:0 0 0 6px #fff8e1;border-radius:2px}
 .byline-click:hover .byline-name{color:var(--red)}
 @media(max-width:760px){.profile-grid{grid-template-columns:1fr}}
 
@@ -217,6 +222,92 @@ function track(name, params) {
   if (typeof gtag === "function") {
     try { gtag("event", name, params); } catch (e) { /* 계측 실패는 무시 */ }
   }
+}
+
+// TTS — Web Speech API (서버·비용 없음). 캐릭터별 pitch/rate 프리셋.
+// 보이스 자체는 기기별 가용 en-US 중 선택 — 기기 편차는 이번 단계의 알려진 한계.
+const voicePresets = {
+  Leo:    { rate: 0.85, pitch: 1.4  },  // 아이 목소리 근사
+  Ruby:   { rate: 0.95, pitch: 1.25 },
+  Sunny:  { rate: 1.05, pitch: 1.15 },  // 에너지
+  Erin:   { rate: 0.95, pitch: 1.0  },
+  Daniel: { rate: 0.9,  pitch: 0.85 },  // 앵커 톤
+};
+
+let _tts = { playing: false, articleIdx: null, lastPara: null, cancelled: false };
+let _enVoice = null;
+
+function ttsSupported() {
+  return typeof window !== "undefined" && "speechSynthesis" in window
+      && typeof SpeechSynthesisUtterance !== "undefined";
+}
+function pickVoice() {
+  if (!ttsSupported()) return;
+  const vs = speechSynthesis.getVoices() || [];
+  _enVoice = vs.find(v => v.lang === "en-US") || vs.find(v => (v.lang || "").startsWith("en")) || null;
+}
+if (ttsSupported()) {
+  pickVoice();
+  // getVoices()는 비동기 로드라 초기 빈 배열일 수 있음 — voiceschanged 대응
+  try { speechSynthesis.addEventListener("voiceschanged", pickVoice); } catch (e) {}
+}
+
+function _josa(name) { return /[aeiouy]$/i.test(name || "") ? "가" : "이"; }
+
+function stopTTS() {
+  if (!ttsSupported()) return;
+  _tts.cancelled = true;
+  _tts.playing = false;
+  try { speechSynthesis.cancel(); } catch (e) {}
+  if (_tts.lastPara) { _tts.lastPara.classList.remove("speaking"); _tts.lastPara = null; }
+  const btn = document.getElementById("tts-btn");
+  if (btn && _tts.label) { btn.textContent = _tts.label; btn.classList.remove("playing"); }
+}
+
+function toggleTTS(idx) {
+  // iOS Safari: 사용자 터치 핸들러 안에서 speak()가 직접 호출돼야 재생됨 — 이 함수가 onclick
+  if (_tts.playing) { stopTTS(); return; }
+  const a = _articles[idx];
+  if (!a || !ttsSupported()) return;
+  pickVoice();
+  const vs = speechSynthesis.getVoices() || [];
+  if (vs.length === 0 && !_enVoice) {
+    const btn = document.getElementById("tts-btn");
+    if (btn) btn.style.display = "none";  // 보이스 0개 — 버튼 숨김, 에러 노출 금지
+    return;
+  }
+  const name = bylineOf(a);
+  const preset = voicePresets[name] || { rate: 1.0, pitch: 1.0 };
+  const paras = [titleOf(a)].concat(
+    (a.article.text || "").split(/\n\s*\n/).map(s => s.trim()).filter(Boolean)
+  );
+  const st = { playing: true, articleIdx: idx, lastPara: null, cancelled: false, label: null };
+  _tts = st;
+  const btn = document.getElementById("tts-btn");
+  if (btn) { st.label = btn.textContent; btn.textContent = "⏹ 정지"; btn.classList.add("playing"); }
+  track("tts_play", { byline: name, level: a.level, article_title: titleOf(a) });
+
+  paras.forEach((text, i) => {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
+    if (_enVoice) u.voice = _enVoice;
+    u.rate = preset.rate;
+    u.pitch = preset.pitch;
+    u.onstart = () => {
+      if (st.cancelled || _tts !== st) return;  // 이전 세션의 지연 이벤트 무시
+      if (st.lastPara) st.lastPara.classList.remove("speaking");
+      const p = i > 0 ? document.getElementById("tts-para-" + (i - 1)) : null;  // 0=제목
+      if (p) { p.classList.add("speaking"); st.lastPara = p; }
+    };
+    if (i === paras.length - 1) {
+      u.onend = () => {
+        if (st.cancelled || _tts !== st) return;  // cancel()·세션 교체로 인한 onend는 완청 아님
+        track("tts_complete", { byline: name, level: a.level, article_title: titleOf(a) });
+        stopTTS();
+      };
+    }
+    speechSynthesis.speak(u);  // 문단 단위 분할 — 긴 단일 utterance 끊김 회피
+  });
 }
 
 function bylineOf(a) {
@@ -401,6 +492,7 @@ function renderList() {
 function openArticle(idx) {
   const a = _articles[idx];
   if (!a) return;
+  stopTTS();  // 다른 기사 열 때 이전 음성 정지
   track("article_view", {
     article_title: titleOf(a),
     level: a.level,
@@ -425,6 +517,7 @@ function openArticle(idx) {
             </div>
           </div>
           ${badge(a.level)}
+          ${ttsSupported() ? `<button class="tts-btn" id="tts-btn" onclick="toggleTTS(${idx})">🔊 ${esc(name)}${_josa(name)} 읽어주기</button>` : ""}
         </div>`;
       })()}
       <div class="article-meta">
@@ -434,7 +527,7 @@ function openArticle(idx) {
       </div>
     </div>
     <div class="article-text-col">
-      <div class="article-body">${esc(a.article.text)}</div>
+      <div class="article-body">${(a.article.text || "").split(/\n\s*\n/).map(s => s.trim()).filter(Boolean).map((p, i) => `<p id="tts-para-${i}">${esc(p)}</p>`).join("")}</div>
       <button class="ko-toggle" onclick="document.getElementById('ko-body').classList.toggle('show')">🇰🇷 한국어 번역 보기 / 닫기</button>
       <div class="ko-body" id="ko-body">
         ${a.article.summary_ko ? `<div class="ko-summary">요약 — ${esc(a.article.summary_ko)}</div>` : ""}
@@ -448,6 +541,7 @@ function openArticle(idx) {
 }
 
 function closeArticle() {
+  stopTTS();  // SPA — 이전 기사 음성이 계속 나오는 사고 방지
   document.getElementById("article-overlay").classList.remove("show");
   document.body.style.overflow = "";
 }
