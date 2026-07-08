@@ -21,7 +21,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .util-bar{background:var(--navy);color:#8899bb;font-size:11px;padding:5px 20px;display:flex;justify-content:space-between}
 header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px}
-.logo{font-family:'Noto Serif KR',serif;font-size:36px;font-weight:900;color:var(--navy);letter-spacing:-1px;line-height:1}
+.logo{font-family:'Noto Serif KR',serif;font-size:36px;font-weight:900;color:var(--navy);letter-spacing:-1px;line-height:1;cursor:pointer;display:inline-block}
+.logo:hover em{text-decoration:underline}
 .logo em{color:var(--red);font-style:normal}
 .logo-sub{font-size:10px;color:var(--muted);letter-spacing:.06em;margin-top:3px}
 
@@ -155,7 +156,7 @@ footer{background:var(--navy);color:#8899bb;font-size:11px;text-align:center;pad
 <header>
   <div class="header-inner">
     <div>
-      <div class="logo">JP <em>Times</em></div>
+      <div class="logo" onclick="goHome()" title="메인으로">JP <em>Times</em></div>
       <div class="logo-sub">ENGLISH EDUCATION NEWSPAPER · 발행 기사 모음</div>
     </div>
   </div>
@@ -225,6 +226,15 @@ const characterProfiles = [
 let _articles = [];
 let _activeTab = "all";
 let _view = "list";  // "list" | "profiles"
+
+function goHome() {
+  closeArticle();
+  _view = "list";
+  _activeTab = "all";
+  renderTabs();
+  renderList();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
 
 function showProfiles(focusLevel) {
   _view = "profiles";
