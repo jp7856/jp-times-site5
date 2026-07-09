@@ -144,6 +144,16 @@ header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .tts-btn.playing{background:var(--red);border-color:var(--red);color:#fff}
 .article-body p{margin:0 0 1.1em;white-space:pre-line}
 .tts-sent.speaking{background:#fff8e1;box-shadow:0 2px 0 #fff8e1,0 -2px 0 #fff8e1;border-radius:2px}
+/* TTS 캐릭터 영상 팝업 (프로필 .profile-loop과 별개 — 팝업 전용) */
+.tts-popup{position:fixed;bottom:24px;z-index:1200;width:150px;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.22);padding:8px 8px 6px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.tts-popup-left{left:24px}
+.tts-popup-right{right:24px}
+.tts-popup-video{width:100%;height:auto;border-radius:9px;background:#e8eaf6;display:block;cursor:pointer}
+.tts-popup-paused .tts-popup-video{opacity:.55}
+.tts-popup-name{font-size:12px;font-weight:800;color:var(--navy)}
+.tts-popup-hint{font-size:9.5px;color:var(--muted)}
+.tts-popup-x{position:absolute;top:-9px;right:-9px;width:24px;height:24px;border-radius:50%;border:none;background:var(--navy);color:#fff;font-size:14px;line-height:1;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+@media(max-width:760px){.tts-popup{left:8px;right:8px;bottom:8px;width:auto;flex-direction:row;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:12px}.tts-popup-video{width:44px;flex:0 0 auto}.tts-popup-name{font-size:13px}.tts-popup-hint{margin-left:auto}}
 .byline-click:hover .byline-name{color:var(--red)}
 @media(max-width:760px){.profile-grid{grid-template-columns:1fr}}
 
@@ -238,6 +248,7 @@ const voicePresets = {
 let _tts = { playing: false, articleIdx: null, lastPara: null, cancelled: false };
 let _enVoice = null;
 let _audioEl = null;  // 클라우드 MP3 재생용 (발행 시 사전 생성된 캐릭터 보이스)
+let _ttsPopup = null;  // 캐릭터 영상 팝업 상태 {el, source, paused}
 
 function ttsSupported() {
   return typeof window !== "undefined" && "speechSynthesis" in window
@@ -284,7 +295,63 @@ function highlightSentence(st, spanId) {
   if (el) { el.classList.add("speaking"); st.lastEl = el; }
 }
 
-function stopTTS() {
+// ── 캐릭터 영상 팝업 (loopVideo와 파일명 규칙만 공유, DOM/클래스는 전용) ──
+function openTtsPopup(name, source) {
+  closeTtsPopup();  // 이전 세션 잔존분 방어적 제거
+  const c = characterProfiles.find(p => p.name === name);
+  if (!c || !c.loop) return;  // loop:true + 영상 있는 캐릭터만 (현재 Daniel)
+  const base = AVATAR_BASE + name.toLowerCase().replace(/\s+/g, "") + "-loop-540";
+  const side = Math.random() < 0.5 ? "left" : "right";  // 세션당 1회 결정, 이후 유지
+  const el = document.createElement("div");
+  el.className = "tts-popup tts-popup-" + side;
+  el.id = "tts-popup";
+  el.innerHTML =
+    `<button class="tts-popup-x" title="닫기" onclick="event.stopPropagation();stopTTS()">×</button>` +
+    `<video class="tts-popup-video" autoplay muted loop playsinline poster="${avatarUrl(name, true)}">` +
+      `<source src="${base}.webm" type="video/webm"><source src="${base}.mp4" type="video/mp4"></video>` +
+    `<div class="tts-popup-name">${esc(name)}</div>` +
+    `<div class="tts-popup-hint">탭하면 일시정지</div>`;
+  document.body.appendChild(el);
+  const video = el.querySelector(".tts-popup-video");
+  video.addEventListener("click", toggleTtsPopupPause);  // 캐릭터 클릭 = 일시정지/재개
+  const pv = video.play();
+  if (pv && pv.catch) pv.catch(() => {});
+  _ttsPopup = { el, source, paused: false };
+}
+
+function closeTtsPopup() {
+  if (!_ttsPopup) return;
+  try {
+    const v = _ttsPopup.el.querySelector(".tts-popup-video");
+    if (v) v.pause();
+    _ttsPopup.el.remove();
+  } catch (e) {}
+  _ttsPopup = null;
+}
+
+// 캐릭터 클릭 — 음성+영상 동시 일시정지/재개 토글 (X와 다른 동작: 종료 아님)
+function toggleTtsPopupPause() {
+  if (!_ttsPopup) return;
+  const video = _ttsPopup.el.querySelector(".tts-popup-video");
+  if (!_ttsPopup.paused) {
+    // 일시정지
+    if (_ttsPopup.source === "cloud") { try { _audioEl.pause(); } catch (e) {} }
+    else { try { speechSynthesis.pause(); } catch (e) {} }
+    try { video.pause(); } catch (e) {}
+    _ttsPopup.paused = true;
+    _ttsPopup.el.classList.add("tts-popup-paused");
+  } else {
+    // 재개 — Web Speech resume은 불안정할 수 있으나, 영상은 항상 토글되고
+    // paused 플래그로 상태를 관리한다(음성 재개 실패가 팝업을 망가뜨리지 않음).
+    if (_ttsPopup.source === "cloud") { const p = _audioEl.play(); if (p && p.catch) p.catch(() => {}); }
+    else { try { speechSynthesis.resume(); } catch (e) {} }
+    const pv = video.play(); if (pv && pv.catch) pv.catch(() => {});
+    _ttsPopup.paused = false;
+    _ttsPopup.el.classList.remove("tts-popup-paused");
+  }
+}
+
+function stopTTS(keepPopup) {
   _tts.cancelled = true;
   _tts.playing = false;
   if (_audioEl) {
@@ -296,6 +363,8 @@ function stopTTS() {
   if (_tts.lastEl) { _tts.lastEl.classList.remove("speaking"); _tts.lastEl = null; }
   const btn = document.getElementById("tts-btn");
   if (btn && _tts.label) { btn.textContent = _tts.label; btn.classList.remove("playing"); }
+  // 완청(onended/onend)에서는 팝업을 남긴다 — X로만 닫힘. 그 외(X·기사전환·재클릭)는 닫음.
+  if (!keepPopup) closeTtsPopup();
 }
 
 function playCloudTTS(idx, a) {
@@ -306,6 +375,7 @@ function playCloudTTS(idx, a) {
   _tts = st;
   const btn = document.getElementById("tts-btn");
   if (btn) { st.label = btn.textContent; btn.textContent = "⏹ 정지"; btn.classList.add("playing"); }
+  openTtsPopup(name, "cloud");  // 캐릭터 영상 팝업 (loop 캐릭터만)
 
   // 낭독 순서(제목+문장)에 누적 문자 구간을 매겨 currentTime을 문장에 매핑
   const units = ttsUnits(a);
@@ -325,7 +395,7 @@ function playCloudTTS(idx, a) {
   _audioEl.onended = () => {
     if (st.cancelled || _tts !== st) return;
     track("tts_complete", { byline: name, level: a.level, article_title: titleOf(a), tts_source: "cloud" });
-    stopTTS();
+    stopTTS(true);  // 완청 — 팝업은 남기고 음성만 종료 (X로만 닫힘)
   };
   _audioEl.onerror = () => {
     if (st.cancelled || _tts !== st) return;
@@ -358,6 +428,7 @@ function toggleTTS(idx) {
   _tts = st;
   const btn = document.getElementById("tts-btn");
   if (btn) { st.label = btn.textContent; btn.textContent = "⏹ 정지"; btn.classList.add("playing"); }
+  openTtsPopup(name, "browser");  // 캐릭터 영상 팝업 (loop 캐릭터만)
   track("tts_play", { byline: name, level: a.level, article_title: titleOf(a), tts_source: "browser" });
 
   units.forEach((unit, i) => {
@@ -374,7 +445,7 @@ function toggleTTS(idx) {
       u.onend = () => {
         if (st.cancelled || _tts !== st) return;  // cancel()·세션 교체로 인한 onend는 완청 아님
         track("tts_complete", { byline: name, level: a.level, article_title: titleOf(a), tts_source: "browser" });
-        stopTTS();
+        stopTTS(true);  // 완청 — 팝업은 남기고 음성만 종료 (X로만 닫힘)
       };
     }
     speechSynthesis.speak(u);  // 문장 단위 분할 — 하이라이트 동기 + 긴 utterance 끊김 회피
