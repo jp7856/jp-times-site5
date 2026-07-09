@@ -145,15 +145,14 @@ header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .article-body p{margin:0 0 1.1em;white-space:pre-line}
 .tts-sent.speaking{background:#fff8e1;box-shadow:0 2px 0 #fff8e1,0 -2px 0 #fff8e1;border-radius:2px}
 /* TTS 캐릭터 영상 팝업 (프로필 .profile-loop과 별개 — 팝업 전용) */
-.tts-popup{position:fixed;bottom:24px;z-index:1200;width:150px;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.22);padding:8px 8px 6px;display:flex;flex-direction:column;align-items:center;gap:4px}
-.tts-popup-left{left:24px}
-.tts-popup-right{right:24px}
+/* PC: 세로 화면 중앙, 가로 위치는 JS가 기사 모달 오른쪽 경계 기준으로 설정 */
+.tts-popup{position:fixed;top:50%;left:0;transform:translateY(-50%);z-index:1200;width:150px;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.22);padding:8px 8px 6px;display:flex;flex-direction:column;align-items:center;gap:4px}
 .tts-popup-video{width:100%;height:auto;border-radius:9px;background:#e8eaf6;display:block;cursor:pointer}
 .tts-popup-paused .tts-popup-video{opacity:.55}
 .tts-popup-name{font-size:12px;font-weight:800;color:var(--navy)}
 .tts-popup-hint{font-size:9.5px;color:var(--muted)}
 .tts-popup-x{position:absolute;top:-9px;right:-9px;width:24px;height:24px;border-radius:50%;border:none;background:var(--navy);color:#fff;font-size:14px;line-height:1;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.3)}
-@media(max-width:760px){.tts-popup{left:8px;right:8px;bottom:8px;width:auto;flex-direction:row;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:12px}.tts-popup-video{width:44px;flex:0 0 auto}.tts-popup-name{font-size:13px}.tts-popup-hint{margin-left:auto}}
+@media(max-width:760px){.tts-popup{left:8px;right:8px;bottom:8px;top:auto;transform:none;width:auto;flex-direction:row;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:12px}.tts-popup-video{width:44px;flex:0 0 auto}.tts-popup-name{font-size:13px}.tts-popup-hint{margin-left:auto}}
 .byline-click:hover .byline-name{color:var(--red)}
 @media(max-width:760px){.profile-grid{grid-template-columns:1fr}}
 
@@ -301,9 +300,8 @@ function openTtsPopup(name, source) {
   const c = characterProfiles.find(p => p.name === name);
   if (!c || !c.loop) return;  // loop:true + 영상 있는 캐릭터만 (현재 Daniel)
   const base = AVATAR_BASE + name.toLowerCase().replace(/\s+/g, "") + "-loop-540";
-  const side = Math.random() < 0.5 ? "left" : "right";  // 세션당 1회 결정, 이후 유지
   const el = document.createElement("div");
-  el.className = "tts-popup tts-popup-" + side;
+  el.className = "tts-popup";
   el.id = "tts-popup";
   el.innerHTML =
     `<button class="tts-popup-x" title="닫기" onclick="event.stopPropagation();stopTTS()">×</button>` +
@@ -316,12 +314,33 @@ function openTtsPopup(name, source) {
   video.addEventListener("click", toggleTtsPopupPause);  // 캐릭터 클릭 = 일시정지/재개
   const pv = video.play();
   if (pv && pv.catch) pv.catch(() => {});
-  _ttsPopup = { el, source, paused: false };
+  // 기사 모달 오른쪽 경계에 맞춰 배치 + 반응형(리사이즈) 추종
+  const onResize = () => positionTtsPopup(el);
+  _ttsPopup = { el, source, paused: false, onResize };
+  positionTtsPopup(el);
+  window.addEventListener("resize", onResize);
+}
+
+// PC: 기사 모달 오른쪽 경계 바로 옆(간격 14px)에 가로 배치, 세로는 CSS가 화면 중앙 담당.
+// 모바일(≤760px): CSS 하단바를 쓰도록 인라인 위치를 비운다.
+function positionTtsPopup(el) {
+  const modal = document.querySelector(".article-modal");
+  if (window.matchMedia("(max-width:760px)").matches || !modal) {
+    el.style.left = "";  // 모바일 — CSS 미디어쿼리(하단바)에 위임
+    return;
+  }
+  const gap = 14;
+  const r = modal.getBoundingClientRect();
+  let left = r.right + gap;
+  const maxLeft = window.innerWidth - el.offsetWidth - 8;  // 화면 밖으로 나가지 않게
+  if (left > maxLeft) left = Math.max(8, maxLeft);
+  el.style.left = left + "px";
 }
 
 function closeTtsPopup() {
   if (!_ttsPopup) return;
   try {
+    if (_ttsPopup.onResize) window.removeEventListener("resize", _ttsPopup.onResize);
     const v = _ttsPopup.el.querySelector(".tts-popup-video");
     if (v) v.pause();
     _ttsPopup.el.remove();
