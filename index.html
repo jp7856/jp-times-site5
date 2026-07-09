@@ -119,7 +119,9 @@ header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .byline-name small{font-weight:400;color:var(--muted);font-size:12px;margin-right:2px}
 .byline-team{font-size:11px;color:var(--muted)}
 .card-avatar{width:18px;height:18px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:#e8eaf6}
-@media(max-width:760px){.byline-avatar{width:64px;height:64px}.byline{gap:10px}}
+@media(max-width:760px){.byline-avatar{width:64px;height:64px}.byline{gap:10px}
+  /* 모바일: 메타(날짜·단어수·섹션)를 각각 한 줄씩 세로 나열 */
+  .article-meta{flex-direction:column;gap:6px}}
 
 /* On Air 필진 프로필 */
 .onair-tab{margin-left:auto;color:var(--red)!important;font-weight:900}
