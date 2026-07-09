@@ -143,7 +143,7 @@ header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .tts-btn:hover{background:var(--navy);color:#fff}
 .tts-btn.playing{background:var(--red);border-color:var(--red);color:#fff}
 .article-body p{margin:0 0 1.1em;white-space:pre-line}
-.article-body p.speaking{background:#fff8e1;box-shadow:0 0 0 6px #fff8e1;border-radius:2px}
+.tts-sent.speaking{background:#fff8e1;box-shadow:0 2px 0 #fff8e1,0 -2px 0 #fff8e1;border-radius:2px}
 .byline-click:hover .byline-name{color:var(--red)}
 @media(max-width:760px){.profile-grid{grid-template-columns:1fr}}
 
@@ -256,6 +256,34 @@ if (ttsSupported()) {
 
 function _josa(name) { return /[aeiouy]$/i.test(name || "") ? "가" : "이"; }
 
+// 문장 분할(마침표/느낌표/물음표 기준) — 렌더링과 낭독이 동일 규칙을 써야 인덱스가 일치한다
+function splitSentences(text) {
+  return (text || "").split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+}
+// 본문 → 문단 <p> 안에 문장 <span id="tts-s-N"> — 문장 단위 하이라이트 대상
+function ttsBody(text) {
+  const paras = (text || "").split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+  let n = 0;
+  return paras.map(p =>
+    `<p>${splitSentences(p).map(s => `<span class="tts-sent" id="tts-s-${n++}">${esc(s)}</span>`).join(" ")}</p>`
+  ).join("");
+}
+// 낭독 단위 목록 — 제목(하이라이트 없음) + 본문 문장(span 매핑). ttsBody와 같은 순서/분할.
+function ttsUnits(a) {
+  const units = [{ text: titleOf(a), spanId: null }];
+  const paras = (a.article.text || "").split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+  let n = 0;
+  paras.forEach(p => splitSentences(p).forEach(s => units.push({ text: s, spanId: "tts-s-" + (n++) })));
+  return units;
+}
+// 현재 읽는 문장만 하이라이트 (이전 것은 해제) — 세션 상태에 마지막 요소 보관
+function highlightSentence(st, spanId) {
+  if (st.lastEl) { st.lastEl.classList.remove("speaking"); st.lastEl = null; }
+  if (!spanId) return;
+  const el = document.getElementById(spanId);
+  if (el) { el.classList.add("speaking"); st.lastEl = el; }
+}
+
 function stopTTS() {
   _tts.cancelled = true;
   _tts.playing = false;
@@ -265,20 +293,35 @@ function stopTTS() {
   if (ttsSupported()) {
     try { speechSynthesis.cancel(); } catch (e) {}
   }
-  if (_tts.lastPara) { _tts.lastPara.classList.remove("speaking"); _tts.lastPara = null; }
+  if (_tts.lastEl) { _tts.lastEl.classList.remove("speaking"); _tts.lastEl = null; }
   const btn = document.getElementById("tts-btn");
   if (btn && _tts.label) { btn.textContent = _tts.label; btn.classList.remove("playing"); }
 }
 
 function playCloudTTS(idx, a) {
-  // 발행 시 사전 생성된 캐릭터 보이스 MP3 — 문단 하이라이트는 불가, 버튼 상태로 재생 중 표시
+  // 발행 시 사전 생성된 캐릭터 보이스 MP3. 문장 타이밍 정보가 없으므로
+  // 경과시간 비율 × 누적 문자수로 현재 문장을 추정해 하이라이트한다(근사).
   const name = bylineOf(a);
-  const st = { playing: true, articleIdx: idx, lastPara: null, cancelled: false, label: null };
+  const st = { playing: true, articleIdx: idx, lastEl: null, cancelled: false, label: null };
   _tts = st;
   const btn = document.getElementById("tts-btn");
   if (btn) { st.label = btn.textContent; btn.textContent = "⏹ 정지"; btn.classList.add("playing"); }
+
+  // 낭독 순서(제목+문장)에 누적 문자 구간을 매겨 currentTime을 문장에 매핑
+  const units = ttsUnits(a);
+  let acc = 0;
+  units.forEach(u => { u.start = acc; acc += u.text.length + 1; });
+  const totalChars = acc || 1;
+
   if (!_audioEl) _audioEl = new Audio();
   _audioEl.src = API_BASE + a.audio_url;
+  _audioEl.ontimeupdate = () => {
+    if (st.cancelled || _tts !== st || !_audioEl.duration) return;
+    const pos = (_audioEl.currentTime / _audioEl.duration) * totalChars;
+    let cur = units[0];
+    for (const u of units) { if (pos >= u.start) cur = u; else break; }
+    if (cur.spanId !== st.curSpan) { st.curSpan = cur.spanId; highlightSentence(st, cur.spanId); }
+  };
   _audioEl.onended = () => {
     if (st.cancelled || _tts !== st) return;
     track("tts_complete", { byline: name, level: a.level, article_title: titleOf(a), tts_source: "cloud" });
@@ -310,35 +353,31 @@ function toggleTTS(idx) {
   }
   const name = bylineOf(a);
   const preset = voicePresets[name] || { rate: 1.0, pitch: 1.0 };
-  const paras = [titleOf(a)].concat(
-    (a.article.text || "").split(/\n\s*\n/).map(s => s.trim()).filter(Boolean)
-  );
-  const st = { playing: true, articleIdx: idx, lastPara: null, cancelled: false, label: null };
+  const units = ttsUnits(a);  // 제목 + 문장 단위 (span 매핑)
+  const st = { playing: true, articleIdx: idx, lastEl: null, cancelled: false, label: null };
   _tts = st;
   const btn = document.getElementById("tts-btn");
   if (btn) { st.label = btn.textContent; btn.textContent = "⏹ 정지"; btn.classList.add("playing"); }
   track("tts_play", { byline: name, level: a.level, article_title: titleOf(a), tts_source: "browser" });
 
-  paras.forEach((text, i) => {
-    const u = new SpeechSynthesisUtterance(text);
+  units.forEach((unit, i) => {
+    const u = new SpeechSynthesisUtterance(unit.text);
     u.lang = "en-US";
     if (_enVoice) u.voice = _enVoice;
     u.rate = preset.rate;
     u.pitch = preset.pitch;
     u.onstart = () => {
       if (st.cancelled || _tts !== st) return;  // 이전 세션의 지연 이벤트 무시
-      if (st.lastPara) st.lastPara.classList.remove("speaking");
-      const p = i > 0 ? document.getElementById("tts-para-" + (i - 1)) : null;  // 0=제목
-      if (p) { p.classList.add("speaking"); st.lastPara = p; }
+      highlightSentence(st, unit.spanId);        // 현재 문장만 하이라이트 (제목은 spanId=null)
     };
-    if (i === paras.length - 1) {
+    if (i === units.length - 1) {
       u.onend = () => {
         if (st.cancelled || _tts !== st) return;  // cancel()·세션 교체로 인한 onend는 완청 아님
         track("tts_complete", { byline: name, level: a.level, article_title: titleOf(a), tts_source: "browser" });
         stopTTS();
       };
     }
-    speechSynthesis.speak(u);  // 문단 단위 분할 — 긴 단일 utterance 끊김 회피
+    speechSynthesis.speak(u);  // 문장 단위 분할 — 하이라이트 동기 + 긴 utterance 끊김 회피
   });
 }
 
@@ -574,7 +613,7 @@ function openArticle(idx) {
       </div>
     </div>
     <div class="article-text-col">
-      <div class="article-body">${(a.article.text || "").split(/\n\s*\n/).map(s => s.trim()).filter(Boolean).map((p, i) => `<p id="tts-para-${i}">${esc(p)}</p>`).join("")}</div>
+      <div class="article-body">${ttsBody(a.article.text || "")}</div>
       <button class="ko-toggle" onclick="document.getElementById('ko-body').classList.toggle('show')">🇰🇷 한국어 번역 보기 / 닫기</button>
       <div class="ko-body" id="ko-body">
         ${a.article.summary_ko ? `<div class="ko-summary">요약 — ${esc(a.article.summary_ko)}</div>` : ""}
