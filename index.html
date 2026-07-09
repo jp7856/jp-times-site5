@@ -152,10 +152,16 @@ header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .tts-popup-name{font-size:12px;font-weight:800;color:var(--navy)}
 .tts-popup-hint{font-size:9.5px;color:var(--muted)}
 .tts-popup-x{position:absolute;top:-9px;right:-9px;width:24px;height:24px;border-radius:50%;border:none;background:var(--navy);color:#fff;font-size:14px;line-height:1;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.3)}
-/* 모바일: 팝업을 바이라인의 tts-btn 자리에 인라인 배치(fixed 아님) — 스크롤하면 본문 따라 사라짐 */
-.tts-popup-inline{position:relative;top:auto;left:auto;transform:none;width:150px;margin-left:auto}
+/* 모바일: 팝업을 바이라인의 tts-btn 자리에 인라인 배치(fixed 아님) — 스크롤하면 본문 따라 사라짐.
+   폭 120px = 기존 150의 80%(20% 축소, 세로 높이 감소로 본문 노출) */
+.tts-popup-inline{position:relative;top:auto;left:auto;transform:none;width:120px;margin-left:auto}
 @media(max-width:760px){
   .byline{flex-wrap:wrap}
+  /* loop 캐릭터 기사: 좌(필진 정보 세로) / 우(캐릭터 팝업) 2단 배치 — flex-wrap 접힘 제거 */
+  .byline.has-popup{flex-wrap:nowrap;align-items:center;gap:12px}
+  .byline.has-popup .byline-click{flex-direction:column;align-items:flex-start;gap:8px}
+  .tts-byline-left{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0}
+  .byline.has-popup .tts-popup-inline{flex:0 0 auto}
   /* 인라인 팝업이 아닌 경우(폴백)만 하단 플로팅 바 */
   .tts-popup:not(.tts-popup-inline){left:8px;right:8px;bottom:8px;top:auto;transform:none;width:auto;flex-direction:row;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:12px}
   .tts-popup:not(.tts-popup-inline) .tts-popup-video{width:44px;flex:0 0 auto}
@@ -321,10 +327,24 @@ function openTtsPopup(name, source) {
   // PC: 기존대로 body에 붙여 모달 오른쪽에 fixed 배치.
   const isMobile = window.matchMedia("(max-width:760px)").matches;
   const btn = document.getElementById("tts-btn");
-  let hidBtn = false;
+  let hidBtn = false, leftWrap = null, byline = null;
   if (isMobile && btn && btn.parentNode) {
     el.classList.add("tts-popup-inline");
-    btn.parentNode.insertBefore(el, btn.nextSibling);
+    byline = btn.closest(".byline");
+    if (byline) {
+      // 좌: 필진 정보(아바타·이름·팀·뱃지) 세로 컬럼 / 우: 캐릭터 팝업 — 2단
+      leftWrap = document.createElement("div");
+      leftWrap.className = "tts-byline-left";
+      const clickEl = byline.querySelector(".byline-click");
+      const badgeEl = byline.querySelector(".mbadge");
+      if (clickEl) leftWrap.appendChild(clickEl);
+      if (badgeEl) leftWrap.appendChild(badgeEl);
+      byline.insertBefore(leftWrap, btn);
+      byline.appendChild(el);
+      byline.classList.add("has-popup");
+    } else {
+      btn.parentNode.insertBefore(el, btn.nextSibling);
+    }
     btn.style.display = "none";
     hidBtn = true;
   } else {
@@ -336,7 +356,7 @@ function openTtsPopup(name, source) {
   if (pv && pv.catch) pv.catch(() => {});
   // 기사 모달 오른쪽 경계에 맞춰 배치 + 반응형(리사이즈) 추종 (PC 전용, 모바일은 인라인이라 no-op)
   const onResize = () => positionTtsPopup(el);
-  _ttsPopup = { el, source, paused: false, onResize, hidBtn };
+  _ttsPopup = { el, source, paused: false, onResize, hidBtn, leftWrap, byline };
   positionTtsPopup(el);
   window.addEventListener("resize", onResize);
 }
@@ -364,6 +384,13 @@ function closeTtsPopup() {
     const v = _ttsPopup.el.querySelector(".tts-popup-video");
     if (v) v.pause();
     _ttsPopup.el.remove();
+    // 모바일 2단 구조 원복 (좌 컬럼 래퍼 해제 — 바이라인 원래 순서로)
+    if (_ttsPopup.leftWrap && _ttsPopup.byline) {
+      const bl = _ttsPopup.byline, lw = _ttsPopup.leftWrap;
+      while (lw.firstChild) bl.insertBefore(lw.firstChild, lw);
+      lw.remove();
+      bl.classList.remove("has-popup");
+    }
     // 모바일에서 숨겼던 진입 버튼 복원 (재생 시작 상태로 복귀)
     if (_ttsPopup.hidBtn) {
       const btn = document.getElementById("tts-btn");
