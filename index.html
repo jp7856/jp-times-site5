@@ -133,6 +133,7 @@ header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .profile-card.hl{outline:3px solid var(--red);outline-offset:2px}
 .profile-order{font-size:10px;color:#bbb;letter-spacing:.08em}
 .profile-avatar{width:120px;height:120px;border-radius:50%;object-fit:cover;background:#e8eaf6}
+.profile-loop{width:100%;max-width:280px;height:auto;border-radius:10px;background:#e8eaf6;display:block}
 .profile-name{font-weight:900;font-size:17px;color:var(--navy)}
 .profile-intro{font-size:12.5px;color:var(--muted);line-height:1.8;text-align:left}
 .profile-btn{margin-top:auto;background:none;border:1px solid var(--red);color:var(--red);border-radius:3px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -351,6 +352,17 @@ function cardAvatar(a) {
   const name = bylineOf(a);
   return name ? `<img class="card-avatar" src="${avatarUrl(name)}" alt="${esc(name)}" loading="lazy" onerror="this.remove()">` : "";
 }
+// 프로필 세로 루프 영상 — avatarUrl과 같은 이름 규칙(소문자), 원형 아바타 로직과 독립.
+// loop 플래그가 있는 캐릭터만 렌더링(파일 있음이 데이터로 보장됨).
+function loopVideo(c) {
+  if (!c.loop) return "";
+  const base = AVATAR_BASE + c.name.toLowerCase().replace(/\s+/g, "") + "-loop-540";
+  return `<video class="profile-loop" autoplay muted loop playsinline
+    poster="${avatarUrl(c.name, true)}">
+    <source src="${base}.webm" type="video/webm">
+    <source src="${base}.mp4" type="video/mp4">
+  </video>`;
+}
 
 // On Air 필진 프로필 — 소개문은 news-pipeline5/docs/on_air_bible.md 3.6이 단일 소스
 const characterProfiles = [
@@ -358,7 +370,7 @@ const characterProfiles = [
   { name: "Ruby",   level: "kids",     intro: "신기한 걸 발견하면 제일 먼저 달려와 알려주는 주니어 리포터 루비예요. 과학 실험과 세계 여러 나라 친구들 이야기를 좋아해요. 아는 건 자랑이 아니라 나누는 거라고 믿어요." },
   { name: "Sunny",  level: "junior",   intro: "뉴스가 있는 곳이라면 어디든 달려가는 현장 리포터 써니예요. 스튜디오보다 현장이 좋아요. 스포츠, 환경, 요즘 유행하는 것들을 발로 뛰며 취재합니다." },
   { name: "Erin",   level: "junior_m", intro: "On Air의 신입 저널리스트 에린이에요. 뉴스가 여러분의 삶과 어떻게 이어지는지 보여주는 게 제 일이에요. 어느 한쪽으로 치우치지 않는 균형 잡힌 시선을 약속합니다." },
-  { name: "Daniel", level: "times",    intro: "On Air의 메인 앵커 대니얼입니다. 세계의 소식을 차분하고 정확하게 전하는 것, 그것이 뉴스룸의 선장인 제 역할입니다. 레오와 루비가 자라 앉게 될 자리를 지키고 있습니다." },
+  { name: "Daniel", level: "times",    loop: true, intro: "On Air의 메인 앵커 대니얼입니다. 세계의 소식을 차분하고 정확하게 전하는 것, 그것이 뉴스룸의 선장인 제 역할입니다. 레오와 루비가 자라 앉게 될 자리를 지키고 있습니다." },
 ];
 
 let _articles = [];
@@ -399,6 +411,7 @@ function renderProfiles(focusLevel) {
         <div class="profile-card ${focusLevel === c.level ? "hl" : ""}" id="profile-${c.level}">
           <div class="profile-order">${i + 1} / ${characterProfiles.length}</div>
           <img class="profile-avatar" src="${avatarUrl(c.name, true)}" alt="${esc(c.name)}" onerror="this.remove()">
+          ${loopVideo(c)}
           <div class="profile-name">${esc(c.name)}</div>
           ${badge(c.level)}
           <div class="profile-intro">${esc(c.intro)}</div>
