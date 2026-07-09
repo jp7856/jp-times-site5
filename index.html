@@ -152,7 +152,15 @@ header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .tts-popup-name{font-size:12px;font-weight:800;color:var(--navy)}
 .tts-popup-hint{font-size:9.5px;color:var(--muted)}
 .tts-popup-x{position:absolute;top:-9px;right:-9px;width:24px;height:24px;border-radius:50%;border:none;background:var(--navy);color:#fff;font-size:14px;line-height:1;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.3)}
-@media(max-width:760px){.tts-popup{left:8px;right:8px;bottom:8px;top:auto;transform:none;width:auto;flex-direction:row;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:12px}.tts-popup-video{width:44px;flex:0 0 auto}.tts-popup-name{font-size:13px}.tts-popup-hint{margin-left:auto}}
+/* 모바일: 팝업을 바이라인의 tts-btn 자리에 인라인 배치(fixed 아님) — 스크롤하면 본문 따라 사라짐 */
+.tts-popup-inline{position:relative;top:auto;left:auto;transform:none;width:150px;margin-left:auto}
+@media(max-width:760px){
+  .byline{flex-wrap:wrap}
+  /* 인라인 팝업이 아닌 경우(폴백)만 하단 플로팅 바 */
+  .tts-popup:not(.tts-popup-inline){left:8px;right:8px;bottom:8px;top:auto;transform:none;width:auto;flex-direction:row;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:12px}
+  .tts-popup:not(.tts-popup-inline) .tts-popup-video{width:44px;flex:0 0 auto}
+  .tts-popup:not(.tts-popup-inline) .tts-popup-hint{margin-left:auto}
+}
 .byline-click:hover .byline-name{color:var(--red)}
 @media(max-width:760px){.profile-grid{grid-template-columns:1fr}}
 
@@ -309,14 +317,26 @@ function openTtsPopup(name, source) {
       `<source src="${base}.webm" type="video/webm"><source src="${base}.mp4" type="video/mp4"></video>` +
     `<div class="tts-popup-name">${esc(name)}</div>` +
     `<div class="tts-popup-hint">탭하면 일시정지</div>`;
-  document.body.appendChild(el);
+  // 모바일: 바이라인의 tts-btn 자리에 인라인 삽입하고 버튼을 숨김(재생 진입점 → 팝업이 공간 차지).
+  // PC: 기존대로 body에 붙여 모달 오른쪽에 fixed 배치.
+  const isMobile = window.matchMedia("(max-width:760px)").matches;
+  const btn = document.getElementById("tts-btn");
+  let hidBtn = false;
+  if (isMobile && btn && btn.parentNode) {
+    el.classList.add("tts-popup-inline");
+    btn.parentNode.insertBefore(el, btn.nextSibling);
+    btn.style.display = "none";
+    hidBtn = true;
+  } else {
+    document.body.appendChild(el);
+  }
   const video = el.querySelector(".tts-popup-video");
   video.addEventListener("click", toggleTtsPopupPause);  // 캐릭터 클릭 = 일시정지/재개
   const pv = video.play();
   if (pv && pv.catch) pv.catch(() => {});
-  // 기사 모달 오른쪽 경계에 맞춰 배치 + 반응형(리사이즈) 추종
+  // 기사 모달 오른쪽 경계에 맞춰 배치 + 반응형(리사이즈) 추종 (PC 전용, 모바일은 인라인이라 no-op)
   const onResize = () => positionTtsPopup(el);
-  _ttsPopup = { el, source, paused: false, onResize };
+  _ttsPopup = { el, source, paused: false, onResize, hidBtn };
   positionTtsPopup(el);
   window.addEventListener("resize", onResize);
 }
@@ -344,6 +364,11 @@ function closeTtsPopup() {
     const v = _ttsPopup.el.querySelector(".tts-popup-video");
     if (v) v.pause();
     _ttsPopup.el.remove();
+    // 모바일에서 숨겼던 진입 버튼 복원 (재생 시작 상태로 복귀)
+    if (_ttsPopup.hidBtn) {
+      const btn = document.getElementById("tts-btn");
+      if (btn) btn.style.display = "";
+    }
   } catch (e) {}
   _ttsPopup = null;
 }
