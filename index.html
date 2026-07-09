@@ -157,10 +157,13 @@ header{background:#fff;border-bottom:3px solid var(--red);padding:14px 20px}
 .tts-popup-inline{position:relative;top:auto;left:auto;transform:none;width:120px;margin-left:auto}
 @media(max-width:760px){
   .byline{flex-wrap:wrap}
-  /* loop 캐릭터 기사: 좌(필진 정보 세로) / 우(캐릭터 팝업) 2단 배치 — flex-wrap 접힘 제거 */
+  /* loop 캐릭터 기사: 좌(필진 정보 콤팩트) / 우(캐릭터 팝업) 2단, 세로 중앙 정렬 */
   .byline.has-popup{flex-wrap:nowrap;align-items:center;gap:12px}
-  .byline.has-popup .byline-click{flex-direction:column;align-items:flex-start;gap:8px}
-  .tts-byline-left{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0}
+  /* 아바타+이름/팀을 한 줄로(콤팩트), 뱃지는 그 아래 — 높이 최소화 */
+  .byline.has-popup .byline-click{flex-direction:row;align-items:center;gap:10px}
+  .byline.has-popup .byline-avatar{width:48px;height:48px}
+  .byline.has-popup .byline-team{font-size:10px}
+  .tts-byline-left{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:6px;min-width:0}
   .byline.has-popup .tts-popup-inline{flex:0 0 auto}
   /* 인라인 팝업이 아닌 경우(폴백)만 하단 플로팅 바 */
   .tts-popup:not(.tts-popup-inline){left:8px;right:8px;bottom:8px;top:auto;transform:none;width:auto;flex-direction:row;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:12px}
