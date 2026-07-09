@@ -431,6 +431,9 @@ function imgOrPh(url, cls, phCls, icon) {
 
 // 기사 제목: 본문 첫 문장 사용 (토픽이 한국어면 본문에서 추출)
 function titleOf(a) {
+  // 신기사: 파이프라인이 분리 생성한 제목. 구기사(제목 없음): 첫 문장 폴백
+  const t = ((a.article || {}).title || "").trim();
+  if (t) return t;
   const firstSentence = (a.article.text || "").split(/(?<=[.!?])\s/)[0] || a.topic;
   return firstSentence.length > 90 ? a.topic : firstSentence;
 }
