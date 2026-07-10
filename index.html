@@ -597,8 +597,7 @@ function renderProfiles(focusLevel) {
       ${characterProfiles.map((c, i) => `
         <div class="profile-card ${focusLevel === c.level ? "hl" : ""}" id="profile-${c.level}">
           <div class="profile-order">${i + 1} / ${characterProfiles.length}</div>
-          <img class="profile-avatar" src="${avatarUrl(c.name, true)}" alt="${esc(c.name)}" onerror="this.remove()">
-          ${loopVideo(c)}
+          ${c.loop ? loopVideo(c) : `<img class="profile-avatar" src="${avatarUrl(c.name, true)}" alt="${esc(c.name)}" onerror="this.remove()">`}
           <div class="profile-name">${esc(c.name)}</div>
           ${badge(c.level)}
           <div class="profile-intro">${esc(c.intro)}</div>
