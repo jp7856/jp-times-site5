@@ -596,10 +596,9 @@ function renderProfiles(focusLevel) {
     <div class="profile-grid">
       ${characterProfiles.map((c, i) => `
         <div class="profile-card ${focusLevel === c.level ? "hl" : ""}" id="profile-${c.level}">
-          <div class="profile-order">${esc((LEVELS.find(l => l.key === c.level) || {}).label || c.level)}</div>
+          <div class="profile-order">${badge(c.level)}</div>
           ${c.loop ? loopVideo(c) : `<img class="profile-avatar" src="${avatarUrl(c.name, true)}" alt="${esc(c.name)}" onerror="this.remove()">`}
           <div class="profile-name">${esc(c.name)}</div>
-          ${badge(c.level)}
           <div class="profile-intro">${esc(c.intro)}</div>
           <button class="profile-btn" onclick="switchTab('${c.level}')">이 필진의 기사 보기 →</button>
         </div>`).join("")}
